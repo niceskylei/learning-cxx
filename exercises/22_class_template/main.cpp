@@ -9,7 +9,10 @@ struct Tensor4D {
 
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
-        // TODO: 填入正确的 shape 并计算 size
+        for (int i = 0; i < 4; ++i) {
+            shape[i] = shape_[i];
+            size *= shape_[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -27,10 +30,42 @@ struct Tensor4D {
     // 例如，`this` 形状为 `[1, 2, 3, 4]`，`others` 形状为 `[1, 2, 1, 4]`，
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
-        // TODO: 实现单向广播的加法
+        // Check shape compatibility
+        for (int i = 0; i < 4; ++i) {
+            ASSERT(others.shape[i] == 1 || others.shape[i] == shape[i],
+                "Shapes are incompatible for broadcasting.");
+        }
+
+        unsigned int size = shape[0] * shape[1] * shape[2] * shape[3];
+
+        for (unsigned int idx = 0; idx < size; ++idx) {
+            unsigned int this_idx[4], other_idx[4];
+            unsigned int temp = idx;
+
+            // Compute multi-dimensional indices for `this` and `others`
+            for (int dim = 3; dim >= 0; --dim) {
+                this_idx[dim] = temp % shape[dim];
+                other_idx[dim] = (others.shape[dim] == 1) ? 0 : this_idx[dim]; // Handle broadcasting
+                temp /= shape[dim];
+            }
+
+            // Compute flattened index for `others` using broadcasted indices
+            unsigned int flat_other_idx = 
+                other_idx[3] +
+                other_idx[2] * others.shape[3] +
+                other_idx[1] * others.shape[2] * others.shape[3] +
+                other_idx[0] * others.shape[1] * others.shape[2] * others.shape[3];
+
+            // Perform the addition
+            data[idx] += others.data[flat_other_idx];
+        }
+
         return *this;
     }
 };
+
+template<class T>
+Tensor4D(unsigned int const[4], T const *) -> Tensor4D<T>;
 
 // ---- 不要修改以下代码 ----
 int main(int argc, char **argv) {
